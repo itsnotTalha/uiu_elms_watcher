@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UIU eLMS Watcher</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand-row">
+        <div class="brand">
+          <img class="brand-icon" src="icons/icon48.png" alt="">
+          <div>
+            <div class="brand-name">eLMS Watcher</div>
+            <div class="brand-subtitle">UIU announcements</div>
+          </div>
+        </div>
+
+        <button id="refreshButton" class="icon-button light" type="button"
+                title="Check for announcements now" aria-label="Check now">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 6v5h-5M4 18v-5h5M19 11a7 7 0 0 0-12-4L4 10m1 3a7 7 0 0 0 12 4l3-3"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="status-row">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Loading…</span>
+        <span class="status-separator">•</span>
+        <span id="lastCheckedText">Not checked yet</span>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span id="newCount" class="summary-value">0</span>
+          <span class="summary-label">New</span>
+        </div>
+        <div class="summary-card">
+          <span id="courseCount" class="summary-value">0</span>
+          <span class="summary-label">Courses</span>
+        </div>
+        <div class="summary-card">
+          <span id="announcementCount" class="summary-value">0</span>
+          <span class="summary-label">Saved</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section id="noticeArea" class="notice-area hidden"></section>
+
+      <div class="toolbar">
+        <div class="tabs" role="tablist" aria-label="Announcement filter">
+          <button class="tab active" data-filter="all" type="button">All</button>
+          <button class="tab" data-filter="new" type="button">
+            New <span id="newTabCount" class="tab-count">0</span>
+          </button>
+        </div>
+
+        <button id="markAllReadButton" class="text-button" type="button">
+          Mark all read
+        </button>
+      </div>
+
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input id="searchInput" type="search"
+               placeholder="Search announcements or courses">
+      </div>
+
+      <section id="announcementList" class="announcement-list"
+               aria-live="polite"></section>
+
+      <section class="settings-card">
+        <button id="settingsToggle" class="settings-heading" type="button"
+                aria-expanded="false">
+          <span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1Z"></path>
+            </svg>
+            Settings
+          </span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m8 10 4 4 4-4"></path>
+          </svg>
+        </button>
+
+        <div id="settingsBody" class="settings-body hidden">
+          <label class="setting-row">
+            <span>
+              <strong>Check interval</strong>
+              <small>How often eLMS is checked</small>
+            </span>
+            <select id="intervalSelect">
+              <option value="1">1 min</option>
+              <option value="2">2 min</option>
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="60">1 hour</option>
+            </select>
+          </label>
+
+          <label class="setting-row">
+            <span>
+              <strong>Desktop notifications</strong>
+              <small>Alert me about new posts</small>
+            </span>
+            <input id="notificationsToggle" class="switch-input"
+                   type="checkbox">
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+
+          <button id="openCoursesButton" class="secondary-button" type="button">
+            Open My Courses
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="announcementTemplate">
+    <article class="announcement-card">
+      <button class="announcement-open" type="button">
+        <div class="announcement-topline">
+          <span class="course-chip"></span>
+          <span class="new-badge">NEW</span>
+        </div>
+        <h2 class="announcement-title"></h2>
+        <p class="announcement-excerpt"></p>
+        <div class="announcement-meta">
+          <span class="announcement-author"></span>
+          <span class="meta-dot">•</span>
+          <span class="announcement-date"></span>
+          <span class="open-label">Open ↗</span>
+        </div>
+      </button>
+    </article>
+  </template>
+
+  <script src="popup.js"></script>
+</body>
+</html>
