@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "UIU eLMS Announcement Watcher",
+  "version": "1.0.0",
+  "description": "Checks UIU eLMS courses for new announcements.",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications"
+  ],
+
+  "host_permissions": [
+    "https://elms.uiu.ac.bd/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://elms.uiu.ac.bd/my/courses.php*"
+      ],
+      "js": ["courses.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html"
+  },
+
+  "icons": {
+    "128": "icon128.png"
+  }
+}
