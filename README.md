@@ -59,3 +59,5 @@ The extension will automatically detect your enrolled courses.
 Add your extension UI screenshot here.
 
 ![UIU eLMS Announcement Watcher](screenshot.png)
+
+![UIU eLMS Announcement Watcher When Logged out](image_logged_out.png)
