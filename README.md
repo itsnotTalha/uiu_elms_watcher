@@ -14,13 +14,13 @@ A Chrome Manifest V3 extension for UIU eLMS that:
 - never asks for or stores the student's eLMS password.
 
 
-## Install locally
+## HOW to Install locally
 
 1. Extract this folder somewhere permanent.
-2. In Chrome, open `chrome://extensions/`.
+2. In Chrome, open `chrome://extensions/`. ![Step 1](step1.png)
 3. Turn on **Developer mode**.
 4. Click **Load unpacked**.
-5. Download and extract the extension ZIP file. Select the `uiu-elms-announcement-watcher` folder.
+5. Download and extract the extension ZIP file. Select the `uiu-elms-announcement-watcher` folder.![Step 2](step2.png)
 6. Sign in normally at UIU eLMS.
 7. Open `https://elms.uiu.ac.bd/my/courses.php` once.
 8. Wait until your course cards load.
