@@ -1,5 +1,5 @@
 const ELMS_ORIGIN = "https://elms.uiu.ac.bd";
-const MY_COURSES_URL = `${ELMS_ORIGIN}/my/courses.php`;
+const DASHBOARD_URL = `${ELMS_ORIGIN}/my/`;
 const LOGIN_URL = `${ELMS_ORIGIN}/login/index.php`;
 
 const elements = {
@@ -9,17 +9,20 @@ const elements = {
   lastCheckedText: document.querySelector("#lastCheckedText"),
   newCount: document.querySelector("#newCount"),
   courseCount: document.querySelector("#courseCount"),
-  announcementCount: document.querySelector("#announcementCount"),
+  assignmentCount: document.querySelector("#assignmentCount"),
   newTabCount: document.querySelector("#newTabCount"),
+  assignmentTabCount: document.querySelector("#assignmentTabCount"),
   noticeArea: document.querySelector("#noticeArea"),
   markAllReadButton: document.querySelector("#markAllReadButton"),
   searchInput: document.querySelector("#searchInput"),
   announcementList: document.querySelector("#announcementList"),
   announcementTemplate: document.querySelector("#announcementTemplate"),
+  assignmentTemplate: document.querySelector("#assignmentTemplate"),
   settingsToggle: document.querySelector("#settingsToggle"),
   settingsBody: document.querySelector("#settingsBody"),
   intervalSelect: document.querySelector("#intervalSelect"),
   notificationsToggle: document.querySelector("#notificationsToggle"),
+  reminderMinutesInput: document.querySelector("#reminderMinutesInput"),
   openCoursesButton: document.querySelector("#openCoursesButton"),
   tabs: [...document.querySelectorAll(".tab")]
 };
@@ -27,13 +30,16 @@ const elements = {
 let state = {
   settings: {
     intervalMinutes: 5,
-    notificationsEnabled: true
+    notificationsEnabled: true,
+    assignmentReminderMinutes: 60
   },
   courses: [],
   announcements: [],
+  assignments: [],
   lastChecked: null,
   status: "loading",
   lastError: null,
+  lastAssignmentError: null,
   checking: false
 };
 
@@ -45,6 +51,7 @@ document.addEventListener("DOMContentLoaded", init);
 async function init() {
   bindEvents();
   await loadState();
+  setInterval(updateCountdowns, 1000);
 
   // Keep UI synchronized if a background check finishes while popup is open.
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -70,7 +77,7 @@ function bindEvents() {
 
   elements.searchInput.addEventListener("input", (event) => {
     searchQuery = event.target.value.trim().toLowerCase();
-    renderAnnouncements();
+    renderItems();
   });
 
   for (const tab of elements.tabs) {
@@ -81,7 +88,7 @@ function bindEvents() {
         item.classList.toggle("active", item === tab)
       );
 
-      renderAnnouncements();
+      renderItems();
     });
   }
 
@@ -109,8 +116,14 @@ function bindEvents() {
     });
   });
 
+  elements.reminderMinutesInput.addEventListener("change", async () => {
+    await saveSettings({
+      assignmentReminderMinutes: Number(elements.reminderMinutesInput.value)
+    });
+  });
+
   elements.openCoursesButton.addEventListener("click", () => {
-    chrome.tabs.create({ url: MY_COURSES_URL });
+    chrome.tabs.create({ url: DASHBOARD_URL });
   });
 }
 
@@ -126,7 +139,8 @@ async function loadState() {
         ...(response.settings || {})
       },
       courses: response.courses || [],
-      announcements: response.announcements || []
+      announcements: response.announcements || [],
+      assignments: response.assignments || []
     };
   }
 
@@ -164,7 +178,7 @@ function render() {
   renderStatus();
   renderSummary();
   renderNotice();
-  renderAnnouncements();
+  renderItems();
   renderSettings();
 
   elements.refreshButton.classList.toggle("loading", Boolean(state.checking));
@@ -187,7 +201,7 @@ function renderStatus() {
     elements.statusText.textContent = "Login required";
   } else if (status === "setup_required") {
     elements.statusDot.classList.add("warn");
-    elements.statusText.textContent = "Setup needed";
+    elements.statusText.textContent = "Waiting for eLMS";
   } else {
     elements.statusDot.classList.add("error");
     elements.statusText.textContent = "Check failed";
@@ -199,12 +213,18 @@ function renderStatus() {
 }
 
 function renderSummary() {
-  const newCount = state.announcements.filter((item) => item.isNew).length;
+  const newCount =
+    state.announcements.filter((item) => item.isNew).length +
+    state.assignments.filter((item) => item.isNew).length;
+  const upcomingCount = state.assignments.filter(
+    (item) => Number(item.dueAt) > Date.now()
+  ).length;
 
   elements.newCount.textContent = String(newCount);
   elements.courseCount.textContent = String(state.courses.length);
-  elements.announcementCount.textContent = String(state.announcements.length);
+  elements.assignmentCount.textContent = String(upcomingCount);
   elements.newTabCount.textContent = String(newCount);
+  elements.assignmentTabCount.textContent = String(upcomingCount);
 
   elements.markAllReadButton.disabled = newCount === 0;
 }
@@ -214,15 +234,15 @@ function renderNotice() {
   area.innerHTML = "";
   area.classList.add("hidden");
 
-  if (state.status === "setup_required" || !state.courses.length) {
+  if (state.status === "setup_required") {
     showNotice({
       type: "warn",
       icon: "1",
-      title: "Discover your courses",
+      title: "Sign in to eLMS",
       text:
-        "Open My Courses once. The extension will automatically learn the courses enrolled in this eLMS account.",
-      buttonText: "Open My Courses",
-      onClick: () => chrome.tabs.create({ url: MY_COURSES_URL })
+        "Sign in normally and open any eLMS page. Courses, assignments and announcements will be discovered automatically.",
+      buttonText: "Open eLMS",
+      onClick: () => chrome.tabs.create({ url: DASHBOARD_URL })
     });
     return;
   }
@@ -247,6 +267,18 @@ function renderNotice() {
       title: "Could not complete the last check",
       text: state.lastError || "Try Check now again.",
       buttonText: "Check now",
+      onClick: checkNow
+    });
+    return;
+  }
+
+  if (state.lastAssignmentError) {
+    showNotice({
+      type: "warn",
+      icon: "!",
+      title: "Assignments could not be refreshed",
+      text: state.lastAssignmentError,
+      buttonText: "Try again",
       onClick: checkNow
     });
   }
@@ -287,29 +319,39 @@ function showNotice({ type, icon, title, text, buttonText, onClick }) {
   area.append(notice);
 }
 
-function renderAnnouncements() {
+function renderItems() {
   const list = elements.announcementList;
   list.innerHTML = "";
 
-  let announcements = [...state.announcements];
-
-  announcements.sort((a, b) => {
-    const aTime = Number(a.postedAt || a.firstSeenAt || 0);
-    const bTime = Number(b.postedAt || b.firstSeenAt || 0);
-    return bTime - aTime;
-  });
+  const now = Date.now();
+  let items = [
+    ...[...state.assignments]
+      .filter((item) => Number(item.dueAt) > now)
+      .sort((a, b) => Number(a.dueAt) - Number(b.dueAt))
+      .map((item) => ({ type: "assignment", value: item })),
+    ...[...state.announcements]
+      .sort((a, b) => {
+        const aTime = Number(a.postedAt || a.firstSeenAt || 0);
+        const bTime = Number(b.postedAt || b.firstSeenAt || 0);
+        return bTime - aTime;
+      })
+      .map((item) => ({ type: "announcement", value: item }))
+  ];
 
   if (activeFilter === "new") {
-    announcements = announcements.filter((item) => item.isNew);
+    items = items.filter((item) => item.value.isNew);
+  } else if (activeFilter === "assignments") {
+    items = items.filter((item) => item.type === "assignment");
   }
 
   if (searchQuery) {
-    announcements = announcements.filter((item) => {
+    items = items.filter((item) => {
       const haystack = [
-        item.title,
-        item.courseName,
-        item.author,
-        item.excerpt
+        item.value.title,
+        item.value.courseName,
+        item.value.author,
+        item.value.excerpt,
+        item.type
       ]
         .join(" ")
         .toLowerCase();
@@ -318,7 +360,7 @@ function renderAnnouncements() {
     });
   }
 
-  if (!announcements.length) {
+  if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
 
@@ -330,24 +372,43 @@ function renderAnnouncements() {
     title.textContent =
       activeFilter === "new"
         ? "You're all caught up"
+        : activeFilter === "assignments"
+          ? "No upcoming assignments"
         : state.courses.length
-          ? "No announcements saved yet"
-          : "Courses have not been discovered";
+          ? "Nothing saved yet"
+          : state.status === "ready"
+            ? "No enrolled courses found"
+            : "Courses have not been discovered";
 
     const text = document.createElement("p");
     text.textContent =
       activeFilter === "new"
-        ? "New eLMS announcements will appear here and can also trigger a desktop notification."
+        ? "New announcements and assignments will appear here and can trigger a desktop notification."
+        : activeFilter === "assignments"
+          ? "Upcoming assignment deadlines will appear here with a live countdown."
         : state.courses.length
-          ? "Press the refresh button to check your courses."
-          : "Open your eLMS My Courses page once to start.";
+          ? "Press the refresh button to check eLMS."
+          : state.status === "ready"
+            ? "The watcher will automatically retry on the next scheduled check."
+            : "Sign in and open any eLMS page to start automatic discovery.";
 
     empty.append(icon, title, text);
     list.append(empty);
     return;
   }
 
-  for (const announcement of announcements) {
+  for (const item of items) {
+    if (item.type === "assignment") {
+      renderAssignment(list, item.value);
+    } else {
+      renderAnnouncement(list, item.value);
+    }
+  }
+
+  updateCountdowns();
+}
+
+function renderAnnouncement(list, announcement) {
     const fragment = elements.announcementTemplate.content.cloneNode(true);
     const card = fragment.querySelector(".announcement-card");
     const button = fragment.querySelector(".announcement-open");
@@ -386,7 +447,40 @@ function renderAnnouncements() {
     });
 
     list.append(fragment);
-  }
+}
+
+function renderAssignment(list, assignment) {
+  const fragment = elements.assignmentTemplate.content.cloneNode(true);
+  const card = fragment.querySelector(".assignment-card");
+  const button = fragment.querySelector(".assignment-open");
+  const dueAt = Number(assignment.dueAt);
+
+  card.classList.toggle("is-new", Boolean(assignment.isNew));
+  fragment.querySelector(".course-chip").textContent =
+    assignment.courseName || "UIU eLMS";
+  fragment.querySelector(".assignment-title").textContent =
+    assignment.title || "Assignment";
+
+  const countdown = fragment.querySelector(".assignment-countdown");
+  countdown.dataset.dueAt = String(dueAt);
+  fragment.querySelector(".assignment-due-date").textContent =
+    formatAssignmentDueDate(dueAt);
+  fragment.querySelector(".reminder-label").textContent =
+    `Reminder ${formatReminderLead(state.settings.assignmentReminderMinutes)} before`;
+
+  button.addEventListener("click", async () => {
+    if (assignment.isNew) {
+      await chrome.runtime.sendMessage({
+        type: "MARK_ASSIGNMENT_READ",
+        key: assignment.key
+      });
+    }
+
+    if (assignment.url) chrome.tabs.create({ url: assignment.url });
+    window.close();
+  });
+
+  list.append(fragment);
 }
 
 function renderSettings() {
@@ -396,6 +490,66 @@ function renderSettings() {
 
   elements.notificationsToggle.checked =
     state.settings?.notificationsEnabled !== false;
+
+  elements.reminderMinutesInput.value = String(
+    state.settings?.assignmentReminderMinutes || 60
+  );
+  elements.reminderMinutesInput.disabled =
+    state.settings?.notificationsEnabled === false;
+}
+
+function updateCountdowns() {
+  const now = Date.now();
+
+  document.querySelectorAll(".assignment-countdown[data-due-at]").forEach(
+    (element) => {
+      const remaining = Number(element.dataset.dueAt) - now;
+      element.textContent = formatCountdown(remaining);
+      element.classList.toggle("urgent", remaining > 0 && remaining <= 3600000);
+      element.classList.toggle(
+        "soon",
+        remaining > 3600000 && remaining <= 86400000
+      );
+      element.classList.toggle("overdue", remaining <= 0);
+    }
+  );
+}
+
+function formatCountdown(remainingMs) {
+  if (!Number.isFinite(remainingMs)) return "Due time unavailable";
+  if (remainingMs <= 0) return "Due now";
+
+  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = [hours, minutes, seconds]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
+
+  return days ? `${days}d ${clock} remaining` : `${clock} remaining`;
+}
+
+function formatAssignmentDueDate(timestamp) {
+  const value = Number(timestamp);
+  if (!value) return "Due date unavailable";
+
+  return `Due ${new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value))}`;
+}
+
+function formatReminderLead(value) {
+  const minutes = Number(value) || 60;
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes % 1440 === 0) return `${minutes / 1440}d`;
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return `${minutes}m`;
 }
 
 function formatAnnouncementDate(announcement) {

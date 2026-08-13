@@ -379,7 +379,8 @@ button {
   margin-top: 12px;
 }
 
-.announcement-card {
+.announcement-card,
+.assignment-card {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -388,18 +389,21 @@ button {
   transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
 }
 
-.announcement-card:hover {
+.announcement-card:hover,
+.assignment-card:hover {
   transform: translateY(-1px);
   border-color: #d8daf9;
   box-shadow: var(--shadow);
 }
 
-.announcement-card.is-new {
+.announcement-card.is-new,
+.assignment-card.is-new {
   border-color: #cbc8ff;
   box-shadow: 0 8px 24px rgba(79,70,229,.10);
 }
 
-.announcement-open {
+.announcement-open,
+.assignment-open {
   width: 100%;
   padding: 13px 14px 12px;
   text-align: left;
@@ -446,6 +450,66 @@ button {
   font-size: 13px;
   line-height: 1.35;
   letter-spacing: -.01em;
+}
+
+.assignment-card {
+  border-color: #dce7f5;
+  background:
+    linear-gradient(135deg, rgba(238, 246, 255, .72), transparent 48%),
+    var(--surface);
+}
+
+.assignment-kind {
+  margin-top: 10px;
+  color: #2870b8;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .09em;
+}
+
+.assignment-title {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: -.01em;
+}
+
+.assignment-deadline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: #edf6ff;
+}
+
+.assignment-countdown {
+  color: #1f66aa;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.assignment-countdown.soon {
+  color: var(--warning);
+}
+
+.assignment-countdown.urgent,
+.assignment-countdown.overdue {
+  color: var(--danger);
+}
+
+.assignment-due-date {
+  color: var(--muted);
+  font-size: 8.5px;
+  text-align: right;
+}
+
+.reminder-label {
+  color: #78859a;
 }
 
 .announcement-excerpt {
@@ -592,7 +656,8 @@ button {
   font-size: 9px;
 }
 
-.setting-row select {
+.setting-row select,
+.number-input {
   min-width: 86px;
   padding: 7px 26px 7px 9px;
   border: 1px solid var(--line);
@@ -601,6 +666,14 @@ button {
   color: var(--text);
   outline: none;
   font-size: 10px;
+}
+
+.number-input {
+  width: 86px;
+}
+
+.number-input:disabled {
+  opacity: .5;
 }
 
 .switch-input {

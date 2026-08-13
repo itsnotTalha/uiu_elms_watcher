@@ -9,12 +9,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         data = parseCourse(message.html, message.baseUrl);
         break;
 
+      case "PARSE_COURSE_LIST":
+        data = parseCourseList(message.html, message.baseUrl);
+        break;
+
       case "PARSE_FORUM":
         data = parseForum(message.html, message.baseUrl);
         break;
 
       case "PARSE_DISCUSSION":
         data = parseDiscussion(message.html, message.baseUrl);
+        break;
+
+      case "PARSE_ASSIGNMENTS":
+        data = parseAssignments(message.html, message.baseUrl);
         break;
 
       default:
@@ -78,6 +86,41 @@ function parseCourse(html, baseUrl) {
       ? absoluteUrl(link.getAttribute("href"), baseUrl)
       : null
   };
+}
+
+function parseCourseList(html, baseUrl) {
+  const doc = createDocument(html);
+  const courses = new Map();
+
+  for (const link of doc.querySelectorAll('a[href*="/course/view.php?id="]')) {
+    const url = absoluteUrl(link.getAttribute("href"), baseUrl);
+    const id = urlParameter(url, "id");
+    if (!id || !/^\d+$/.test(id) || id === "1") continue;
+
+    const container = link.closest(
+      '[data-region="course-content"], .course-info-container, ' +
+      ".course-summaryitem, .coursebox, .card"
+    );
+    const name = cleanText(
+      link.querySelector(".multiline, .coursename")?.textContent ||
+      container?.querySelector(
+        '.coursename, .multiline, [data-region="course-name"], h3, h4'
+      )?.textContent ||
+      link.getAttribute("aria-label") ||
+      link.getAttribute("title") ||
+      link.textContent
+    );
+    const candidate = {
+      id,
+      name: name || `Course ${id}`
+    };
+    const existing = courses.get(id);
+    if (!existing || candidate.name.length > existing.name.length) {
+      courses.set(id, candidate);
+    }
+  }
+
+  return { courses: [...courses.values()] };
 }
 
 function parseForum(html, baseUrl) {
@@ -228,6 +271,206 @@ function parseDiscussion(html, baseUrl) {
     excerpt: excerpt.slice(0, 1200),
     url: baseUrl
   };
+}
+
+function parseAssignments(html, baseUrl) {
+  const doc = createDocument(html);
+  const candidates = new Set();
+
+  doc.querySelectorAll(
+    '[data-event-component="mod_assign"][data-event-eventtype="due"]'
+  ).forEach((node) => candidates.add(node));
+
+  doc.querySelectorAll('a[href*="/mod/assign/view.php"]').forEach((link) => {
+    const container =
+      link.closest('[data-region="event-item"], li, article, .event') || link;
+    const eventType = cleanText(
+      container.getAttribute?.("data-event-eventtype")
+    );
+    if (!eventType || eventType === "due") candidates.add(container);
+  });
+
+  doc.querySelectorAll('[data-event-component="mod_assign"]').forEach((node) => {
+    const eventType = cleanText(node.getAttribute("data-event-eventtype"));
+    if (!eventType || eventType === "due") candidates.add(node);
+  });
+
+  // The small Upcoming events block does not always include data-event-component.
+  doc.querySelectorAll('[data-region="event-item"], .event').forEach((node) => {
+    const hasAssignmentIcon = Boolean(
+      node.querySelector('img[src*="/assign/"]')
+    );
+    const looksLikeDueEvent = /\bassignment\b.*\bdue\b/i.test(
+      cleanText(node.textContent)
+    );
+    if (hasAssignmentIcon || looksLikeDueEvent) candidates.add(node);
+  });
+
+  const assignments = new Map();
+
+  for (const container of candidates) {
+    const directLink = container.matches('a[href*="/mod/assign/view.php"]')
+      ? container
+      : container.querySelector('a[href*="/mod/assign/view.php"]');
+    const eventLink =
+      container.querySelector('a[data-action="view-event"]') || directLink;
+    const bestLink = directLink || eventLink;
+    if (!bestLink) continue;
+
+    const directUrl = directLink
+      ? absoluteUrl(directLink.getAttribute("href"), baseUrl)
+      : null;
+    const eventUrl = eventLink
+      ? absoluteUrl(eventLink.getAttribute("href"), baseUrl)
+      : null;
+    const assignmentId = urlParameter(directUrl, "id");
+    const eventId =
+      cleanId(eventLink?.getAttribute("data-event-id")) ||
+      cleanId(container.getAttribute?.("data-event-id")) ||
+      eventIdFromHash(eventUrl);
+
+    const dueText = cleanText(
+      container.querySelector("time")?.getAttribute("datetime") ||
+      container.querySelector("time")?.textContent ||
+      container.querySelector(
+        ".date, .event-time, [data-region='event-time'], .calendar-event-time"
+      )?.textContent
+    );
+    const dueAt = extractEventTimestamp(container, eventUrl, dueText);
+    if (!dueAt) continue;
+
+    const courseLink = container.querySelector(
+      'a[href*="/course/view.php?id="]'
+    );
+    const courseUrl = courseLink
+      ? absoluteUrl(courseLink.getAttribute("href"), baseUrl)
+      : null;
+    const courseId =
+      urlParameter(courseUrl, "id") ||
+      urlParameter(eventUrl, "course") ||
+      nearestAttribute(container, "data-courseid");
+    const courseName = cleanText(
+      container.querySelector(
+        ".course-name, .coursename, [data-region='course-name']"
+      )?.textContent || courseLink?.textContent
+    );
+    const title = cleanText(
+      container.querySelector(
+        ".eventname, [data-region='event-name'], h3, h4, h5, h6"
+      )?.textContent ||
+      bestLink.getAttribute("title") ||
+      bestLink.textContent
+    );
+
+    const key = assignmentId
+      ? `assign:${assignmentId}`
+      : eventId
+        ? `event:${eventId}`
+        : `${bestLink.getAttribute("href")}:${dueAt}`;
+    const candidate = {
+      assignmentId: cleanId(assignmentId),
+      eventId: cleanId(eventId),
+      courseId: cleanId(courseId),
+      courseName,
+      title,
+      dueAt,
+      dueText,
+      url: directUrl || eventUrl
+    };
+    const existing = assignments.get(key);
+
+    if (!existing || assignmentQuality(candidate) > assignmentQuality(existing)) {
+      assignments.set(key, candidate);
+    }
+  }
+
+  return {
+    assignments: [...assignments.values()].sort(
+      (a, b) => Number(a.dueAt) - Number(b.dueAt)
+    )
+  };
+}
+
+function extractEventTimestamp(container, eventUrl, dueText) {
+  const timestampAttributes = [
+    "data-timestamp",
+    "data-day-timestamp",
+    "data-time",
+    "data-timestart",
+    "data-due-date",
+    "data-duedate"
+  ];
+
+  let current = container;
+  while (current) {
+    for (const attribute of timestampAttributes) {
+      const parsed = normalizeTimestamp(current.getAttribute?.(attribute));
+      if (parsed) return parsed;
+    }
+    current = current.parentElement;
+  }
+
+  const urlTimestamp = normalizeTimestamp(urlParameter(eventUrl, "time"));
+  if (urlTimestamp) return urlTimestamp;
+
+  for (const anchor of container.querySelectorAll('a[href*="time="]')) {
+    const timestamp = normalizeTimestamp(
+      urlParameter(absoluteUrl(anchor.getAttribute("href"), eventUrl), "time")
+    );
+    if (timestamp) return timestamp;
+  }
+
+  const parsedDate = Date.parse(dueText);
+  return Number.isFinite(parsedDate) ? parsedDate : null;
+}
+
+function normalizeTimestamp(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed < 100000000000 ? parsed * 1000 : parsed;
+}
+
+function urlParameter(url, name) {
+  if (!url) return null;
+  try {
+    return new URL(url).searchParams.get(name);
+  } catch {
+    return null;
+  }
+}
+
+function eventIdFromHash(url) {
+  if (!url) return null;
+  try {
+    return new URL(url).hash.match(/event_(\d+)/i)?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
+function cleanId(value) {
+  const text = String(value || "").trim();
+  return /^\d+$/.test(text) ? text : null;
+}
+
+function nearestAttribute(node, name) {
+  let current = node;
+  while (current) {
+    const value = current.getAttribute?.(name);
+    if (value) return value;
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function assignmentQuality(item) {
+  return (
+    (item.assignmentId ? 30 : 0) +
+    (item.url?.includes("/mod/assign/") ? 20 : 0) +
+    (item.title?.length || 0) +
+    (item.courseName?.length || 0) +
+    (item.dueText?.length || 0)
+  );
 }
 
 function meaningfulDiscussionTitle(...values) {

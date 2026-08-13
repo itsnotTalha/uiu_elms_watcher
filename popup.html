@@ -14,12 +14,12 @@
           <img class="brand-icon" src="icons/icon48.png" alt="">
           <div>
             <div class="brand-name">eLMS Watcher</div>
-            <div class="brand-subtitle">UIU announcements</div>
+            <div class="brand-subtitle">Announcements & assignments</div>
           </div>
         </div>
 
         <button id="refreshButton" class="icon-button light" type="button"
-                title="Check for announcements now" aria-label="Check now">
+                title="Check eLMS now" aria-label="Check now">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20 6v5h-5M4 18v-5h5M19 11a7 7 0 0 0-12-4L4 10m1 3a7 7 0 0 0 12 4l3-3"/>
           </svg>
@@ -43,8 +43,8 @@
           <span class="summary-label">Courses</span>
         </div>
         <div class="summary-card">
-          <span id="announcementCount" class="summary-value">0</span>
-          <span class="summary-label">Saved</span>
+          <span id="assignmentCount" class="summary-value">0</span>
+          <span class="summary-label">Upcoming</span>
         </div>
       </div>
     </header>
@@ -53,10 +53,13 @@
       <section id="noticeArea" class="notice-area hidden"></section>
 
       <div class="toolbar">
-        <div class="tabs" role="tablist" aria-label="Announcement filter">
+        <div class="tabs" role="tablist" aria-label="Item filter">
           <button class="tab active" data-filter="all" type="button">All</button>
           <button class="tab" data-filter="new" type="button">
             New <span id="newTabCount" class="tab-count">0</span>
+          </button>
+          <button class="tab" data-filter="assignments" type="button">
+            Due <span id="assignmentTabCount" class="tab-count">0</span>
           </button>
         </div>
 
@@ -71,7 +74,7 @@
           <path d="m20 20-3.5-3.5"></path>
         </svg>
         <input id="searchInput" type="search"
-               placeholder="Search announcements or courses">
+               placeholder="Search announcements, assignments or courses">
       </div>
 
       <section id="announcementList" class="announcement-list"
@@ -112,15 +115,24 @@
           <label class="setting-row">
             <span>
               <strong>Desktop notifications</strong>
-              <small>Alert me about new posts</small>
+              <small>New posts, assignments and due reminders</small>
             </span>
             <input id="notificationsToggle" class="switch-input"
                    type="checkbox">
             <span class="switch" aria-hidden="true"></span>
           </label>
 
+          <label class="setting-row">
+            <span>
+              <strong>Assignment reminder</strong>
+              <small>Minutes before the due time</small>
+            </span>
+            <input id="reminderMinutesInput" class="number-input"
+                   type="number" min="1" max="10080" step="1" value="60">
+          </label>
+
           <button id="openCoursesButton" class="secondary-button" type="button">
-            Open My Courses
+            Open eLMS Dashboard
           </button>
         </div>
       </section>
@@ -140,6 +152,27 @@
           <span class="announcement-author"></span>
           <span class="meta-dot">•</span>
           <span class="announcement-date"></span>
+          <span class="open-label">Open ↗</span>
+        </div>
+      </button>
+    </article>
+  </template>
+
+  <template id="assignmentTemplate">
+    <article class="assignment-card">
+      <button class="assignment-open" type="button">
+        <div class="announcement-topline">
+          <span class="course-chip"></span>
+          <span class="new-badge">NEW</span>
+        </div>
+        <div class="assignment-kind">ASSIGNMENT</div>
+        <h2 class="assignment-title"></h2>
+        <div class="assignment-deadline">
+          <span class="assignment-countdown" data-due-at=""></span>
+          <span class="assignment-due-date"></span>
+        </div>
+        <div class="announcement-meta">
+          <span class="reminder-label"></span>
           <span class="open-label">Open ↗</span>
         </div>
       </button>

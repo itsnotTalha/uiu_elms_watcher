@@ -3,6 +3,17 @@
   let lastSignature = "";
   let timer = null;
 
+  // Any authenticated eLMS page can be the post-login landing page. Let the
+  // service worker discover courses directly instead of requiring My Courses.
+  chrome.runtime.sendMessage({
+    type: "ELMS_PAGE_ACTIVE",
+    url: location.href
+  }).catch(() => {});
+
+  // Course-card observation is only a fallback for Moodle installations that
+  // do not expose the enrolled-course AJAX method.
+  if (location.pathname !== "/my/courses.php") return;
+
   function cleanText(value) {
     return String(value || "")
       .replace(/\s+/g, " ")

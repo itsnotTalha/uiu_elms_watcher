@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "UIU eLMS Announcement Watcher",
+  "name": "UIU eLMS Watcher",
   "short_name": "eLMS Watcher",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "minimum_chrome_version": "116",
-  "description": "Automatically discovers UIU eLMS courses, checks Announcements forums, and notifies you about new posts.",
+  "description": "Watches UIU eLMS announcements and upcoming assignments, with due-date countdowns and reminders.",
   "permissions": [
     "storage",
     "alarms",
@@ -20,7 +20,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://elms.uiu.ac.bd/my/courses.php*"
+        "https://elms.uiu.ac.bd/*"
       ],
       "js": [
         "content-script.js"
@@ -29,7 +29,7 @@
     }
   ],
   "action": {
-    "default_title": "UIU eLMS Announcement Watcher",
+    "default_title": "UIU eLMS Watcher",
     "default_popup": "popup.html"
   },
   "icons": {
