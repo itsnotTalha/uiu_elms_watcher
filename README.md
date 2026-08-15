@@ -3,7 +3,7 @@
 A Chrome Manifest V3 extension for UIU eLMS that:
 
 - automatically discovers the currently logged-in student's courses in the background;
-- finds the **Announcements** activity inside each course;
+- finds the **Announcements** and **Assignment**activity inside each course;
 - checks the Moodle announcement forum on a schedule;
 - stores recent announcements locally in the browser;
 - shows announcement titles and available announcement text in a modern popup;
