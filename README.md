@@ -3,8 +3,6 @@
 A Chrome Manifest V3 extension for UIU eLMS that:
 
 - automatically discovers the currently logged-in student's courses in the background;
-- finds the **Announcements** and **Assignment**activity inside each course;
-- checks the Moodle announcement forum on a schedule;
 - stores recent announcements locally in the browser;
 - shows announcement titles and available announcement text in a modern popup;
 - marks newly discovered posts as **NEW**;
@@ -15,7 +13,6 @@ A Chrome Manifest V3 extension for UIU eLMS that:
 - sends a notification when a new assignment appears;
 - sends a due reminder at a custom lead time (60 minutes by default);
 - opens the exact announcement when clicked;
-- never asks for or stores the student's eLMS password;
 - detects a successful eLMS page load and starts checking automatically.
 
 
