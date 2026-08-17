@@ -28,7 +28,7 @@ A Chrome Manifest V3 extension for UIU eLMS that:
 5. Download and extract the extension ZIP file. Select the `uiu-elms-announcement-watcher` folder.![Step 2](step2.png)
 6. Sign in normally at UIU eLMS.
 7. Open any eLMS page after signing in. The extension starts automatically.
-8. Click the extension icon and press the refresh button if needed.
+8. Click the extension icon pin it and press the refresh button if needed.
 
 
 ## First-Time Setup
@@ -61,7 +61,6 @@ The extension fetches your enrolled courses itself; opening **My Courses** is no
 
 ## Extension Preview
 
-Add your extension UI screenshot here.
 
 ![UIU eLMS Announcement Watcher](screenshot.png)
 
