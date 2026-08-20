@@ -879,7 +879,9 @@ function looksLikeLoginPage(finalUrl, html) {
 }
 
 async function parseWithOffscreen(type, payload) {
-  await ensureOffscreenDocument();
+  if (chrome.offscreen?.createDocument) {
+    await ensureOffscreenDocument();
+  }
 
   const response = await chrome.runtime.sendMessage({
     target: "offscreen",
