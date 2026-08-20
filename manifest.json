@@ -3,19 +3,18 @@
   "name": "UIU eLMS Watcher",
   "short_name": "eLMS Watcher",
   "version": "1.2.0",
-  "minimum_chrome_version": "116",
   "description": "Watches UIU eLMS announcements and upcoming assignments, with due-date countdowns and reminders.",
   "permissions": [
     "storage",
     "alarms",
-    "notifications",
-    "offscreen"
+    "notifications"
   ],
-  "host_permissions": [
-    "https://elms.uiu.ac.bd/*"
-  ],
+  
   "background": {
-    "service_worker": "background.js"
+    "scripts": [
+      "offscreen.js",
+      "background.js"
+    ]
   },
   "content_scripts": [
     {
